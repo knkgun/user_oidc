@@ -231,18 +231,29 @@ class LoginController extends Controller {
 			], Http::STATUS_FORBIDDEN);
 		}
 
+		$providerId = (int)$this->session->get(self::PROVIDERID);
+		if ($providerId !== 0) {
+			$provider = $this->providerMapper->getProvider($providerId);
+		} else {
+			$providers = $this->providerMapper->getProviders();
+			$provider = $providers[0];
+		}
+
 		if ($this->session->get(self::STATE) !== $state) {
 			$this->logger->debug('state does not match');
 
-			// TODO show page with forbidden
-			return new JSONResponse([
-				'got' => $state,
-				'expected' => $this->session->get(self::STATE),
-			], Http::STATUS_FORBIDDEN);
+			$targetUrl = null;
+			if ($provider) {
+				$targetUrl = $this->urlGenerator->linkToRoute(Application::APP_ID . '.login.login', [
+					'providerId' => $provider->getId(),
+					'redirectUrl' => $this->session->get(self::REDIRECT_AFTER_LOGIN)
+				]);
+			}
+			return new Http\TemplateResponse(Application::APP_ID, 'error', [
+				'error' => 'Login failed.',
+				'retryUrl' => $targetUrl,
+			], Http\TemplateResponse::RENDER_AS_ERROR);
 		}
-
-		$providerId = (int)$this->session->get(self::PROVIDERID);
-		$provider = $this->providerMapper->getProvider($providerId);
 
 		$discovery = $this->discoveryService->obtainDiscovery($provider);
 
